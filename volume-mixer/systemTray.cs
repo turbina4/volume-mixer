@@ -1,9 +1,13 @@
 ﻿using System.Diagnostics;
+using System.Windows.Forms;
 
 namespace systemTray
 {
     public class TrayHandler
     {
+        private static NotifyIcon notifyIcon;
+        private static ContextMenuStrip contextMenu;
+
         [MTAThread]
         public static void Init()
         {
@@ -11,16 +15,14 @@ namespace systemTray
             Application.SetCompatibleTextRenderingDefault(false);
 
             // Utwórz obiekt NotifyIcon
-            NotifyIcon notifyIcon = new NotifyIcon
+            notifyIcon = new NotifyIcon
             {
-                //Icon = new System.Drawing.Icon(Program.iconPath),
-                Icon = new System.Drawing.Icon("C:\\Users\\Admin\\source\\repos\\volume-mixer\\volume-mixer\\mixerLogo.ico"),
-
+                Icon = new System.Drawing.Icon(Program.iconPath), // Use the path set in Program
                 Visible = true
             };
 
             // Utwórz menu kontekstowe
-            ContextMenuStrip contextMenu = new ContextMenuStrip();
+            contextMenu = new ContextMenuStrip();
 
             // Dodaj elementy do menu kontekstowego
             ToolStripMenuItem reloadConfigItem = new ToolStripMenuItem("Reload config", null, ReloadConfig);
@@ -66,13 +68,15 @@ namespace systemTray
 
         private static void ReloadAudioDevice(object sender, EventArgs e)
         {
-            Program.initAudioDevice();
+            Program.initAudioDevices();
         }
 
         private static void Exit(object sender, EventArgs e)
         {
-            Application.Exit();
+            // Signal the main program to exit
             Program.programExit = true;
+            // Trigger application exit
+            Application.Exit();
         }
     }
 }

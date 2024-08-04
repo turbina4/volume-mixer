@@ -46,7 +46,7 @@ apps:
 ```
 ## Instalation
 
-Download `setup.exe` or `Installer.msi` and install the program.
+Download `setup.exe` or `Mixer.Software.msi` and install the program.
 
 ## Usage
 

@@ -1,28 +1,22 @@
-﻿using NAudio.CoreAudioApi;
+﻿using AudioSwitcher.AudioApi.CoreAudio;
+using AudioSwitcher.AudioApi.Session;
 using System.Diagnostics;
 using System.IO.Ports;
 using yamlConfig;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
 
-//Propreties -> Output type -> [Windows Application]
-
 class Program
 {
     public static bool initSerial = false;
-    public static bool initAudio = false;
     public static bool initCfg = false;
     public static bool programExit = false;
 
     private static SerialPort _serialPort; // Obiekt do komunikacji przez port szeregowy
     public static Config root; // Obiekt do przechowywania konfiguracji
 
-    private static MMDeviceEnumerator deviceEnumerator;
-    private static MMDevice renderDevice;
-    private static MMDevice captureDevice;
-    private static AudioSessionManager sessionManager;
-
-    private static String oldData = "";
+    private static CoreAudioDevice playbackDevice;
+    private static CoreAudioDevice captureDevice;
 
     public static string roamingAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
     public static string configPath = Path.Combine(roamingAppData, "Turbina4Software\\config.yaml");
@@ -31,8 +25,6 @@ class Program
 
     private static void Main(string[] args)
     {
-
-        // Inicjalizacja SystemTray w oddzielnym wątku
         Thread trayHandlerThread = new Thread(() =>
         {
             systemTray.TrayHandler.Init();
@@ -42,25 +34,21 @@ class Program
         trayHandlerThread.SetApartmentState(ApartmentState.MTA);
         trayHandlerThread.Start();
 
-        // Inicjalizacja konfiguracji z pliku YAML
+        // Inicjalizacja
         initCfg = initConfig();
-
-
-        // Inicjalizacja portu szeregowego
         if (initCfg)
             initSerial = initSerialPort(root.Port, root.Baudrate);
-
-        // Inicjalizacja urządzenia audio
-        initAudio = initAudioDevice();
+        initAudioDevices();
 
         mainLoop();
     }
 
+
     public static void mainLoop()
     {
-        if (initSerial && initAudio)
+        if (initSerial)
         {
-            // Główna pętla programu
+            String oldData = "";
 
             while (!programExit)
             {
@@ -71,6 +59,7 @@ class Program
                     continue;
 
                 oldData = data;
+
                 //Console.WriteLine(data);
 
                 // Konwersja odczytanych danych na listę floatów
@@ -90,21 +79,22 @@ class Program
 
                     else if (root.Apps[i] is Dictionary<object, object> groupDict)
                     {
-                        // Jeśli aplikacja to słownik, iteruj przez jego elementy
-                        foreach (var group in groupDict)
+                        var groupNames = groupDict.Values.OfType<List<object>>()
+                                     .SelectMany(group => group)
+                                     .ToList();
+
+                        foreach (var groupName in groupNames)
                         {
-                            foreach (var groupName in (List<object>)group.Value)
-                            {
-                                setAppVolume(groupName.ToString(), values[i]); // Ustaw głośność dla aplikacji w grupie
-                            }
+                            setAppVolume(groupName.ToString(), values[i]); // Ustaw głośność
                         }
                     }
                 }
 
-                Thread.Sleep(100); // Krótkie opóźnienie przed kolejnym odczytem
+                Thread.Sleep(125); // Krótkie opóźnienie przed kolejnym odczytem
             }
         }
     }
+
 
     public static bool initConfig()
     {
@@ -122,7 +112,8 @@ class Program
             root = deserializer.Deserialize<Config>(yaml);
             Console.WriteLine("Initalized Config");
             Console.WriteLine($"Port: {root.Port}");
-            Console.WriteLine($"Baudrate: {root.Baudrate}");
+            Console.WriteLine($"Baud-rate: {root.Baudrate}");
+            Console.WriteLine($"Invert Sliders: {root.InvertSliders}");
 
             return true;
         }
@@ -165,6 +156,13 @@ class Program
     }
 
 
+    public static void initAudioDevices()
+    {
+        playbackDevice = new CoreAudioController().DefaultPlaybackDevice;
+        captureDevice = new CoreAudioController().DefaultCaptureDevice;
+    }
+
+
     private static List<float> ConvertStringToFloatList(string input)
     {
         // Konwersja ciągu znaków na listę floatów
@@ -175,90 +173,49 @@ class Program
         {
             if (float.TryParse(part, out float value)) // Próbuj parsować ciąg do float
             {
-                floatList.Add(value / 100); // Dodanie wartości do listy, dzieląc przez 100
+                if (!root.InvertSliders)
+                    floatList.Add((float)Math.Round((value / 1023.0f) * 100.0f));
+                else
+                    floatList.Add((float)Math.Round(100.0f - ((value / 1023.0f) * 100.0f)));
             }
         }
         return floatList; // Zwróć listę floatów
     }
 
 
-    public static bool initAudioDevice()
-    {
-        try
-        {
-            deviceEnumerator = new MMDeviceEnumerator();
-
-            if (renderDevice != null)
-                renderDevice.Dispose();
-
-            renderDevice = deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-            captureDevice = deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
-
-            Console.WriteLine(renderDevice.ToString());
-            Console.WriteLine(captureDevice.ToString());
-
-            sessionManager = renderDevice.AudioSessionManager;
-
-            Console.WriteLine("Initalized Audio Device");
-
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine("Error initializing audio device: " + ex.Message);
-            MessageBox.Show($"Error during Audio device initialization \n {ex}", "Audio Initialize Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
-
-        }
-
-        return false;
-    }
-
-
     private static void setAppVolume(string app, float volume)
     {
-        if (sessionManager == null || renderDevice == null)
+        if (volume < 0.0f || volume > 100.0f)
+            return;
+
+        string normalizedAppName = app.ToLower();
+
+        if (normalizedAppName == "master")
         {
-            Console.WriteLine("SessionManager or renderDevice = NULL");
+            playbackDevice.Volume = volume;
             return;
         }
 
-        if (volume < 0.0f || volume > 1.0f)
+        if (app.ToLower() == "mic")
+        {
+            captureDevice.Volume = volume;
             return;
+        }
 
-        if (!initAudio)
-            return;
         try
         {
             // Iteracja przez sesje audio
-            for (int i = 0; i < sessionManager.Sessions.Count; i++)
+            foreach (IAudioSession session in playbackDevice.SessionController.All())
             {
-                AudioSessionControl session = sessionManager.Sessions[i];
-                int processId = Convert.ToInt32(session.GetProcessID);
+                Process session_process = Process.GetProcessById(session.ProcessId);
+                string sessName = session_process.ProcessName.ToLower();
 
-
-                Process process = Process.GetProcessById(processId); // Uzyskanie procesu na podstawie PID
-
-                if (app.ToLower() == "master")
+                if (normalizedAppName == sessName)
                 {
-                    renderDevice.AudioEndpointVolume.MasterVolumeLevelScalar = volume;
-                    return;
-                }
-
-                if (app.ToLower() == "mic")
-                {
-                    captureDevice.AudioEndpointVolume.MasterVolumeLevelScalar = volume;
-                    return;
-                }
-
-                // Sprawdź, czy proces to {app}
-                if (process.ProcessName.ToLower().Equals(app.ToLower(), StringComparison.OrdinalIgnoreCase))
-                {
-                    // Ustaw głośność na {volume}
-                    session.SimpleAudioVolume.Volume = volume;
-
-                    //Console.WriteLine($"Głośność aplikacji {app} ustawiona na {volume * 100}%"); // Debug info
+                    session.Volume = volume;
                     return; // Zakończ, gdy głośność została ustawiona
                 }
+
             }
         }
         catch (Exception ex)

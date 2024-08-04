@@ -1,0 +1,22 @@
+# How to edit the config:
+# port: Check your COM port in Device Manager
+# baudrate: Same Baud Rate as the one in arduinoCode.ino
+# apps: List your apps here
+#       Check the application name in Task Manager -> Details
+#       App names are not case sensitive
+#       Special controls: master - controls master volume
+#                         mic - controls your microphone volume
+#       group: Group multiple apps together
+
+port: COM7
+baudrate: 57600
+apps:
+    - master
+    - firefox
+    - AMPLibraryManager
+    - Discord
+    - group:
+            - PathOfExileSteam
+            - cs2
+            - GeometryDash
+            - RustClient

@@ -44,7 +44,7 @@ apps:
           - GeometryDash
           - RustClient
 ```
-## Instalation
+## Installation
 
 Download `setup.exe` or `Mixer.Software.msi` and install the program.
 

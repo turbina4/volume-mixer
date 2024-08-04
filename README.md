@@ -44,6 +44,9 @@ apps:
           - GeometryDash
           - RustClient
 ```
+## Instalation
+
+Download `setup.exe` or `Installer.msi` and install the program.
 
 ## Usage
 

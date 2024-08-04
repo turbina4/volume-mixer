@@ -11,6 +11,10 @@ Arduino Board: The microcontroller to read analog signals from the potentiometer
 Potentiometers: Analog input devices to adjust volume levels. Each potentiometer corresponds to a different application or sound control.
 Serial Communication: Used to send potentiometer values from the Arduino to the computer.
 
+## 3D-Printed case
+
+A custom 3D-printed case for the Arduino Pro Micro enhances both aesthetics and functionality, providing easy access to potentiometers and secure mounting for components.
+
 ## Schematic
 
 ![Schematic img](Media/Schematic.png)
@@ -21,22 +25,26 @@ The configuration file (config.yaml) specifies the settings for your COM port, b
 
 ```yaml
 # How to edit the config:
+
 # port: Check your COM port in Device Manager
+port: COM7
+
 # baudrate: Same Baud Rate as the one in arduinoCode.ino
+baudrate: 57600
+
+# invertSliders: Explains itself
+invertSliders: false
+
 # apps: List your apps here
 #       Check the application name in Task Manager -> Details
 #       App names are not case sensitive
 #       Special controls: master - controls master volume
 #                         mic - controls your microphone volume
-# group: Group multiple apps together
-#        Group names are not case sensitive
-
-port: COM7
-baudrate: 57600
+#       group: Group multiple apps together
 apps:
     - master
     - firefox
-    - AMPLibraryManager
+    - AMPLibraryAgent
     - Discord
     - group:
           - PathOfExileSteam
@@ -44,6 +52,7 @@ apps:
           - GeometryDash
           - RustClient
 ```
+
 ## Installation
 
 Download `setup.exe` or `Mixer.Software.msi` and install the program.

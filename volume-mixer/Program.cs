@@ -58,7 +58,7 @@ class Program
 
     public static void mainLoop()
     {
-        if (initSerial && initAudio)
+        if (initSerial)
         {
             // Główna pętla programu
 
@@ -71,7 +71,7 @@ class Program
                     continue;
 
                 oldData = data;
-                //Console.WriteLine(data);
+                Console.WriteLine(data);
 
                 // Konwersja odczytanych danych na listę floatów
                 List<float> values = ConvertStringToFloatList(data);
@@ -187,19 +187,11 @@ class Program
         try
         {
             deviceEnumerator = new MMDeviceEnumerator();
-
-            if (renderDevice != null)
-                renderDevice.Dispose();
-
             renderDevice = deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
             captureDevice = deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
-
-            Console.WriteLine(renderDevice.ToString());
-            Console.WriteLine(captureDevice.ToString());
-
             sessionManager = renderDevice.AudioSessionManager;
 
-            Console.WriteLine("Initalized Audio Device");
+            Console.WriteLine("Initalized deviceEnumerator");
 
             return true;
         }
@@ -213,31 +205,18 @@ class Program
         return false;
     }
 
-
     private static void setAppVolume(string app, float volume)
     {
-        if (sessionManager == null || renderDevice == null)
-        {
-            Console.WriteLine("SessionManager or renderDevice = NULL");
-            return;
-        }
-
-        if (volume < 0.0f || volume > 1.0f)
+        if (!initAudio || volume < 0.0f || volume > 1.0f)
             return;
 
-        if (!initAudio)
-            return;
+        sessionManager.RefreshSessions();
+
         try
         {
             // Iteracja przez sesje audio
             for (int i = 0; i < sessionManager.Sessions.Count; i++)
             {
-                AudioSessionControl session = sessionManager.Sessions[i];
-                int processId = Convert.ToInt32(session.GetProcessID);
-
-
-                Process process = Process.GetProcessById(processId); // Uzyskanie procesu na podstawie PID
-
                 if (app.ToLower() == "master")
                 {
                     renderDevice.AudioEndpointVolume.MasterVolumeLevelScalar = volume;
@@ -250,8 +229,12 @@ class Program
                     return;
                 }
 
+                AudioSessionControl session = sessionManager.Sessions[i];
+                int processId = Convert.ToInt32(session.GetProcessID);
+
+
                 // Sprawdź, czy proces to {app}
-                if (process.ProcessName.ToLower().Equals(app.ToLower(), StringComparison.OrdinalIgnoreCase))
+                if (Process.GetProcessById(processId).ProcessName.ToLower().Equals(app.ToLower(), StringComparison.OrdinalIgnoreCase))
                 {
                     // Ustaw głośność na {volume}
                     session.SimpleAudioVolume.Volume = volume;

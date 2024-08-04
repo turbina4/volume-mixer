@@ -13,7 +13,7 @@ baudrate: 57600
 apps:
     - master
     - firefox
-    - AMPLibraryManager
+    - AMPLibraryAgent
     - Discord
     - group:
             - PathOfExileSteam

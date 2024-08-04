@@ -9,6 +9,7 @@ namespace yamlConfig
     {
         public string Port { get; set; }
         public int Baudrate { get; set; }
+        public bool InvertSliders { get; set; }
         public List<object> Apps { get; set; }
     }
 }

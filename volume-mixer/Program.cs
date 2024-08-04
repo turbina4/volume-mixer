@@ -43,6 +43,7 @@ class Program
         mainLoop();
     }
 
+
     public static void mainLoop()
     {
         if (initSerial)
@@ -94,6 +95,7 @@ class Program
         }
     }
 
+
     public static bool initConfig()
     {
         initCfg = false;
@@ -110,7 +112,8 @@ class Program
             root = deserializer.Deserialize<Config>(yaml);
             Console.WriteLine("Initalized Config");
             Console.WriteLine($"Port: {root.Port}");
-            Console.WriteLine($"Baudrate: {root.Baudrate}");
+            Console.WriteLine($"Baud-rate: {root.Baudrate}");
+            Console.WriteLine($"Invert Sliders: {root.InvertSliders}");
 
             return true;
         }
@@ -153,26 +156,15 @@ class Program
     }
 
 
-    public static void DisposeSerialPort()
-    {
-        if (_serialPort != null)
-        {
-            _serialPort.Close();
-            _serialPort.Dispose();
-            _serialPort = null;
-        }
-    }
-
     public static void initAudioDevices()
     {
         playbackDevice = new CoreAudioController().DefaultPlaybackDevice;
         captureDevice = new CoreAudioController().DefaultCaptureDevice;
     }
 
-    
+
     private static List<float> ConvertStringToFloatList(string input)
     {
-
         // Konwersja ciągu znaków na listę floatów
         string[] parts = input.Split('|'); // Rozdzielenie danych na części
         List<float> floatList = new List<float>();
@@ -181,7 +173,10 @@ class Program
         {
             if (float.TryParse(part, out float value)) // Próbuj parsować ciąg do float
             {
-                floatList.Add(value); // Dodanie wartości do listy, dzieląc przez 100
+                if (root.InvertSliders)
+                    floatList.Add((float)Math.Round((value / 1023.0f) * 100.0f));
+                else
+                    floatList.Add((float)Math.Round(100.0f - ((value / 1023.0f) * 100.0f)));
             }
         }
         return floatList; // Zwróć listę floatów

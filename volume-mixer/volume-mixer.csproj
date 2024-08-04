@@ -7,7 +7,7 @@
     <RootNamespace>volume_mixer</RootNamespace>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <SupportedOSPlatformVersion>8.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
     <ApplicationIcon>mixerLogo.ico</ApplicationIcon>
   </PropertyGroup>
 

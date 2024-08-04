@@ -1,5 +1,4 @@
-﻿using Microsoft.VisualBasic.ApplicationServices;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 
 namespace systemTray
 {
@@ -14,11 +13,11 @@ namespace systemTray
             // Utwórz obiekt NotifyIcon
             NotifyIcon notifyIcon = new NotifyIcon
             {
-                Icon = new System.Drawing.Icon(Program.iconPath),
-                //Icon = new System.Drawing.Icon("C:\\Users\\Admin\\source\\repos\\volume-mixer\\volume-mixer\\mixerLogo.ico"),
+                //Icon = new System.Drawing.Icon(Program.iconPath),
+                Icon = new System.Drawing.Icon("C:\\Users\\Admin\\source\\repos\\volume-mixer\\volume-mixer\\mixerLogo.ico"),
 
                 Visible = true
-            }; ; 
+            };
 
             // Utwórz menu kontekstowe
             ContextMenuStrip contextMenu = new ContextMenuStrip();
@@ -47,9 +46,10 @@ namespace systemTray
         {
             Program.initConfig();
             if (!Program.initSerial)
+            {
                 Program.initSerial = Program.initSerialPort(Program.root.Port, Program.root.Baudrate);
-            
-            //MessageBox.Show($"Config Reloaded", "Reload Cfg", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                Program.mainLoop();
+            }
         }
 
         private static void EditCfg(object sender, EventArgs e)
@@ -60,7 +60,7 @@ namespace systemTray
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Błąd podczas otwierania pliku \n {ex.Message}", "File Open Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show($"Error while opening file \n {ex.Message}", "File Open Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 

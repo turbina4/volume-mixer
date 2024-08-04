@@ -45,7 +45,7 @@ class Program
         // Inicjalizacja konfiguracji z pliku YAML
         initCfg = initConfig();
 
-        
+
         // Inicjalizacja portu szeregowego
         if (initCfg)
             initSerial = initSerialPort(root.Port, root.Baudrate);
@@ -53,9 +53,15 @@ class Program
         // Inicjalizacja urządzenia audio
         initAudio = initAudioDevice();
 
+        mainLoop();
+    }
+
+    public static void mainLoop()
+    {
         if (initSerial && initAudio)
         {
             // Główna pętla programu
+
             while (!programExit)
             {
                 _serialPort.DiscardInBuffer(); // Opróżnij bufor wejściowy
@@ -95,16 +101,15 @@ class Program
                     }
                 }
 
-
                 Thread.Sleep(100); // Krótkie opóźnienie przed kolejnym odczytem
             }
         }
     }
 
-
     public static bool initConfig()
     {
         initCfg = false;
+
         try
         {
             // Odczytanie pliku konfiguracyjnego YAML
@@ -121,7 +126,11 @@ class Program
 
             return true;
         }
-        catch (Exception ex) { Console.WriteLine(ex.Message); }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+            MessageBox.Show($"Error while initializing config \n {ex.Message}", "Config Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
 
 
         return false;
@@ -148,7 +157,8 @@ class Program
         {
             _serialPort.Close(); // Zamknięcie portu w przypadku błędu
             Console.WriteLine($"Failed to open Serial Port"); // Informacja o błędzie
-            MessageBox.Show($"Bład podczas otwierania Serial Portu \n {ex.Message}", "Serial Port Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show($"Error while opening Serial Port \n {ex.Message}", "Serial Port Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
         }
 
         return false; // Zwróć false, jeśli otwarcie portu się nie powiodło
@@ -196,7 +206,8 @@ class Program
         catch (Exception ex)
         {
             Console.WriteLine("Error initializing audio device: " + ex.Message);
-            MessageBox.Show($"Bład podczas inicjalizacji urządzenia Audio \n {ex}", "Audio initalize error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            MessageBox.Show($"Error during Audio device initialization \n {ex}", "Audio Initialize Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
         }
 
         return false;
@@ -252,22 +263,7 @@ class Program
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Błąd podczas uzyskiwania procesu: {ex.Message}"); // Informacja o błędzie
+            Console.WriteLine($"Error while retrieving process: {ex.Message}"); // Informacja o błędzie
         }
     }
 }
-
-//private static void DEBUG_printAudioSessions()
-//{
-//    // Debugowanie: wypisywanie wszystkich sesji audio
-//    MMDeviceEnumerator deviceEnumerator = new MMDeviceEnumerator();
-//    MMDevice renderDevice = deviceEnumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-//    AudioSessionManager sessionManager = renderDevice.AudioSessionManager;
-
-//    for (int i = 0; i < sessionManager.Sessions.Count; i++)
-//    {
-//        AudioSessionControl session = sessionManager.Sessions[i];
-//        int processId = Convert.ToInt32(session.GetProcessID);
-//        Console.WriteLine($"PID: {processId}, Name: {session.DisplayName}"); // Wypisz PID i nazwę sesji
-//    }
-//}

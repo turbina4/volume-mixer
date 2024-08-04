@@ -7,7 +7,7 @@ port: COM7
 baudrate: 57600
 
 # invertSliders: Explains itself
-invertSliders: true
+invertSliders: false
 
 # apps: List your apps here
 #       Check the application name in Task Manager -> Details
@@ -18,7 +18,7 @@ invertSliders: true
 apps:
     - master
     - firefox
-    - mic
+    - AMPLibraryAgent
     - Discord
     - group:
             - PathOfExileSteam

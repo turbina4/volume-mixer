@@ -257,15 +257,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:Mixer Software"
-        "ProductCode" = "8:{1F0D7241-643E-405C-A863-C7201719B5FF}"
-        "PackageCode" = "8:{202AFCBD-078E-45FB-80ED-0883AAFD59B8}"
+        "ProductCode" = "8:{F100C96C-E208-4AA1-BC9F-A9FB8139D82C}"
+        "PackageCode" = "8:{E272C370-D04C-4D5C-87E0-6CA03D6B38C3}"
         "UpgradeCode" = "8:{567F9E2D-996D-4420-B0CE-D7E09E77313A}"
         "AspNetVersion" = "8:2.0.50727.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:TRUE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:FALSE"
-        "ProductVersion" = "8:1.2.0"
+        "ProductVersion" = "8:1.2.1"
         "Manufacturer" = "8:Turbina4Software"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:https://github.com/turbina4"
@@ -1063,7 +1063,7 @@
         {
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_424A3DC574A6495F9F1D0EF14229EB42"
             {
-            "SourcePath" = "8:..\\volume-mixer\\obj\\Debug\\net8.0-windows\\apphost.exe"
+            "SourcePath" = "8:..\\volume-mixer\\obj\\Release\\net8.0-windows\\apphost.exe"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_95305ADAA5484BFEB9C49930889F59ED"

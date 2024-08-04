@@ -173,7 +173,7 @@ class Program
         {
             if (float.TryParse(part, out float value)) // Próbuj parsować ciąg do float
             {
-                if (root.InvertSliders)
+                if (!root.InvertSliders)
                     floatList.Add((float)Math.Round((value / 1023.0f) * 100.0f));
                 else
                     floatList.Add((float)Math.Round(100.0f - ((value / 1023.0f) * 100.0f)));

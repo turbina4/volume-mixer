@@ -15,8 +15,8 @@ class Program
     private static SerialPort _serialPort; // Obiekt do komunikacji przez port szeregowy
     public static Config root; // Obiekt do przechowywania konfiguracji
 
-    private static CoreAudioDevice playbackDevice;
-    private static CoreAudioDevice captureDevice;
+    private static CoreAudioDevice playbackDevice; // Urządzenie do odtwarzania dźwięku
+    private static CoreAudioDevice captureDevice; // Urządzenie do nagrywania dźwięku
 
     public static string roamingAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
     public static string configPath = Path.Combine(roamingAppData, "Turbina4Software\\config.yaml");
@@ -25,6 +25,7 @@ class Program
 
     private static void Main(string[] args)
     {
+        // Utwórz i uruchom wątek dla obsługi ikony w zasobniku systemowym
         Thread trayHandlerThread = new Thread(() =>
         {
             systemTray.TrayHandler.Init();
@@ -60,14 +61,12 @@ class Program
 
                 oldData = data;
 
-                //Console.WriteLine(data);
-
                 // Konwersja odczytanych danych na listę floatów
                 List<float> values = ConvertStringToFloatList(data);
 
                 // Jeśli liczba odczytanych wartości nie jest równa root.Apps.Count, przejdź do następnej iteracji
                 if (values.Count != root.Apps.Count)
-                    continue;
+                    continue; //siurek xdd
 
                 // Ustawienie głośności dla aplikacji na podstawie odczytanych wartości
                 for (int i = 0; i < root.Apps.Count; i++)
@@ -108,7 +107,7 @@ class Program
                 .WithNamingConvention(CamelCaseNamingConvention.Instance)
                 .Build();
 
-            // Deserializacja pliku YAML do obiektu Root
+            // Deserializacja pliku YAML do obiektu Config
             root = deserializer.Deserialize<Config>(yaml);
             Console.WriteLine("Initalized Config");
             Console.WriteLine($"Port: {root.Port}");
@@ -123,33 +122,72 @@ class Program
             MessageBox.Show($"Error while initializing config \n {ex.Message}", "Config Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
-
         return false;
     }
 
 
     public static bool initSerialPort(string comPort, int baud)
     {
-        // Inicjalizacja portu szeregowego
         _serialPort = new SerialPort();
-        _serialPort.PortName = comPort; // Ustawienie nazwy portu
         _serialPort.BaudRate = baud; // Ustawienie szybkości transmisji
-
         _serialPort.DtrEnable = true; // Włączenie DTR
         _serialPort.RtsEnable = true; // Włączenie RTS
 
-        try
+        if (comPort == "AUTO")
         {
-            _serialPort.Open(); // Otwarcie portu
-            Console.WriteLine("Initalized Serial Port");
-            return true; // Zwróć true, jeśli otwarcie się powiodło
-        }
-        catch (Exception ex)
-        {
-            _serialPort.Close(); // Zamknięcie portu w przypadku błędu
-            Console.WriteLine($"Failed to open Serial Port"); // Informacja o błędzie
-            MessageBox.Show($"Error while opening Serial Port \n {ex.Message}", "Serial Port Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            // Pobierz wszystkie dostępne porty COM
+            string[] ports = SerialPort.GetPortNames();
 
+            foreach (string port in ports)
+            {
+                if (port == "COM1")
+                    continue;
+
+                try
+                {
+                    _serialPort.PortName = port; // Ustawienie nazwy portu
+                    _serialPort.Open(); // Otwórz port
+
+                    Console.WriteLine("Opened: " + port);
+
+                    _serialPort.DiscardInBuffer();
+                    string response = _serialPort.ReadLine();
+
+                    // Sprawdź, czy odpowiedź to unikalny identyfikator
+                    if (response.Contains("Mx31"))
+                    {
+                        Console.WriteLine("Znaleziono Arduino na porcie: " + port);
+                        return true;
+                        // Możesz tutaj dodać kod, który będzie działać po wykryciu Arduino
+                    }
+
+                    _serialPort.Dispose();
+                }
+
+                catch (Exception ex)
+                {
+                    Console.WriteLine("Błąd na porcie: " + port + " - " + ex.Message);
+                    MessageBox.Show($"Error while opening Serial Port ${port} \n {ex.Message}", "Serial Port Error - AUTO", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+        else
+        {
+            _serialPort.PortName = comPort; // Ustawienie nazwy portu
+
+            try
+            {
+                _serialPort.Open(); // Otwarcie portu
+                Console.WriteLine("Initalized Serial Port");
+                return true; // Zwróć true, jeśli otwarcie się powiodło
+            }
+            catch (Exception ex)
+            {
+                _serialPort.Close(); // Zamknięcie portu w przypadku błędu
+                Console.WriteLine($"Failed to open Serial Port"); // Informacja o błędzie
+                MessageBox.Show($"Error while opening Serial Port \n {ex.Message}", "Serial Port Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+            }
         }
 
         return false; // Zwróć false, jeśli otwarcie portu się nie powiodło
@@ -158,8 +196,11 @@ class Program
 
     public static void initAudioDevices()
     {
+        // Inicjalizacja urządzeń audio
         playbackDevice = new CoreAudioController().DefaultPlaybackDevice;
         captureDevice = new CoreAudioController().DefaultCaptureDevice;
+
+        Console.WriteLine("Initalized Audio Devices");
     }
 
 
@@ -174,9 +215,9 @@ class Program
             if (float.TryParse(part, out float value)) // Próbuj parsować ciąg do float
             {
                 if (!root.InvertSliders)
-                    floatList.Add((float)Math.Round((value / 1023.0f) * 100.0f));
+                    floatList.Add(value);
                 else
-                    floatList.Add((float)Math.Round(100.0f - ((value / 1023.0f) * 100.0f)));
+                    floatList.Add(100.0f - value);
             }
         }
         return floatList; // Zwróć listę floatów
@@ -185,6 +226,7 @@ class Program
 
     private static void setAppVolume(string app, float volume)
     {
+        //Console.WriteLine($"{app} -> {volume}");
         if (volume < 0.0f || volume > 100.0f)
             return;
 
@@ -196,7 +238,7 @@ class Program
             return;
         }
 
-        if (app.ToLower() == "mic")
+        if (normalizedAppName == "mic")
         {
             captureDevice.Volume = volume;
             return;

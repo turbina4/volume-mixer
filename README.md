@@ -7,10 +7,6 @@ Components
 
 ![Mixer Photo](Media/Mixer.jpg)
 
-Arduino Board: The microcontroller to read analog signals from the potentiometers.
-Potentiometers: Analog input devices to adjust volume levels. Each potentiometer corresponds to a different application or sound control.
-Serial Communication: Used to send potentiometer values from the Arduino to the computer.
-
 ## 3D-Printed case
 
 A custom 3D-printed case for the Arduino Pro Micro enhances both aesthetics and functionality, providing easy access to potentiometers and secure mounting for components. The project utilizes:

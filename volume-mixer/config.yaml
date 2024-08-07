@@ -1,7 +1,9 @@
 # How to edit the config:
 
-# port: Check your COM port in Device Manager
-port: COM7
+# port: 
+    #AUTO - automaticly detects port (Experimental feature)
+    #manual - Check your COM port in Device Manager (It should look like this -> port: COMx)
+port: AUTO
 
 # baudrate: Same Baud Rate as the one in arduinoCode.ino
 baudrate: 57600

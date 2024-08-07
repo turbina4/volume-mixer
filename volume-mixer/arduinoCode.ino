@@ -26,12 +26,12 @@ void loop() {
 
 void updateSliderValues() {
   for (int i = 0; i < NUM_SLIDERS; i++) {
-    analogSliderValues[i] = analogRead(analogInputs[i]);
+    analogSliderValues[i] = map(analogRead(analogInputs[i]), 0, 1020, 0, 100) ;
   }
 }
 
 void sendSliderValues() {
-  String builtString = String("");
+  String builtString = String("Mx31|");
 
   for (int i = 0; i < NUM_SLIDERS; i++) {
     builtString += String((int)analogSliderValues[i]);

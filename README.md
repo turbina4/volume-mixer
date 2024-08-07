@@ -13,7 +13,11 @@ Serial Communication: Used to send potentiometer values from the Arduino to the 
 
 ## 3D-Printed case
 
-A custom 3D-printed case for the Arduino Pro Micro enhances both aesthetics and functionality, providing easy access to potentiometers and secure mounting for components.
+A custom 3D-printed case for the Arduino Pro Micro enhances both aesthetics and functionality, providing easy access to potentiometers and secure mounting for components. The project utilizes:
+
+-   4x M2x6 screws
+-   6x M3x8 screws
+-   6x M3 brass inserts (length: 4mm, diameter: 4.5mm)
 
 ## Schematic
 
@@ -26,8 +30,10 @@ The configuration file (config.yaml) specifies the settings for your COM port, b
 ```yaml
 # How to edit the config:
 
-# port: Check your COM port in Device Manager
-port: COM7
+# port:
+#AUTO - automaticly detects port (Experimental feature)
+#manual - Check your COM port in Device Manager (It should look like this -> port: COMx)
+port: AUTO
 
 # baudrate: Same Baud Rate as the one in arduinoCode.ino
 baudrate: 57600

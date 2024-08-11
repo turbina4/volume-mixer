@@ -50,6 +50,9 @@ class Program
         if (initSerial)
         {
             String oldData = "";
+            List<float> oldValues = new List<float>();
+
+
 
             while (!programExit)
             {
@@ -64,13 +67,21 @@ class Program
                 // Konwersja odczytanych danych na listę floatów
                 List<float> values = ConvertStringToFloatList(data);
 
+
                 // Jeśli liczba odczytanych wartości nie jest równa root.Apps.Count, przejdź do następnej iteracji
                 if (values.Count != root.Apps.Count)
-                    continue; //siurek xdd
+                    continue;
 
                 // Ustawienie głośności dla aplikacji na podstawie odczytanych wartości
                 for (int i = 0; i < root.Apps.Count; i++)
                 {
+                    if (oldValues.Count == values.Count)
+                    {
+                        if (values[i] == oldValues[i])
+                            continue;
+                    }
+
+
                     if (root.Apps[i] is string appName)
                     {
                         setAppVolume(appName, values[i]); // Ustaw głośność dla aplikacji
@@ -89,6 +100,7 @@ class Program
                     }
                 }
 
+                oldValues = values;
                 Thread.Sleep(125); // Krótkie opóźnienie przed kolejnym odczytem
             }
         }
@@ -255,7 +267,7 @@ class Program
                 if (normalizedAppName == sessName)
                 {
                     session.Volume = volume;
-                    return; // Zakończ, gdy głośność została ustawiona
+                    continue;
                 }
 
             }

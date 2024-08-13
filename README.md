@@ -23,6 +23,18 @@ A custom 3D-printed case for the Arduino Pro Micro enhances both aesthetics and 
 
 The configuration file (config.yaml) specifies the settings for your COM port, baud rate, and the applications you want to control. Here's a sample configuration:
 
+#### Special Controls
+
+-   master: Controls the overall system volume.
+-   mic: Controls the microphone volume.
+-   activeWindow: Controls currently focused app.
+
+#### Application Grouping
+
+By grouping applications together, you can control the volume of multiple applications simultaneously.
+
+### Example Config:
+
 ```yaml
 # How to edit the config:
 
@@ -42,11 +54,12 @@ invertSliders: false
 #       App names are not case sensitive
 #       Special controls: master - controls master volume
 #                         mic - controls your microphone volume
+#                         activeWindow - controls currently focused window volume
 #       group: Group multiple apps together
 apps:
     - master
     - firefox
-    - AMPLibraryAgent
+    - activeWindow
     - Discord
     - group:
           - PathOfExileSteam
@@ -62,14 +75,11 @@ Download `setup.exe` or `Mixer.Software.msi` and install the program.
 ## Usage
 
 Connect the Arduino to your computer and upload the provided sketch.
+
 Configure the application using the provided config.yaml file, ensuring the COM port and baud rate match those in the Arduino sketch.
+
 Run the application on your computer. It will read the potentiometer values from the Arduino and adjust the specified application volumes accordingly.
 
+If you got any error while opening Serial Port make sure you have correct config options and press `Reload config` in menu
+
 ![Options img](Media/Options.png)
-
-## Special Controls
-
-master: Controls the overall system volume.
-mic: Controls the microphone volume.
-
-By grouping applications together, you can control the volume of multiple applications simultaneously. This is useful for managing game audio, communication apps, and other sound sources efficiently.

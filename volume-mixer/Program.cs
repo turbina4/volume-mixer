@@ -2,6 +2,7 @@
 using AudioSwitcher.AudioApi.Session;
 using System.Diagnostics;
 using System.IO.Ports;
+using System.Runtime.InteropServices;
 using yamlConfig;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -22,6 +23,12 @@ class Program
     public static string configPath = Path.Combine(roamingAppData, "Turbina4Software\\config.yaml");
     public static string iconPath = Path.GetFullPath("mixerLogo.ico");
 
+    //Get active app
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
     private static void Main(string[] args)
     {
@@ -31,8 +38,8 @@ class Program
             systemTray.TrayHandler.Init();
         });
 
-        // Ustaw wątek jako MTA (Multi-Threaded Apartment)
-        trayHandlerThread.SetApartmentState(ApartmentState.MTA);
+        // Ustaw wątek jako STA (Single-Threaded Apartment)
+        trayHandlerThread.SetApartmentState(ApartmentState.STA);
         trayHandlerThread.Start();
 
         // Inicjalizacja
@@ -51,61 +58,64 @@ class Program
         {
             String oldData = "";
             List<float> oldValues = new List<float>();
-
-
+            uint oldActiveAppPID = 0;
 
             while (!programExit)
             {
                 _serialPort.DiscardInBuffer(); // Opróżnij bufor wejściowy
                 string data = _serialPort.ReadLine(); // Odczytaj linię danych z portu szeregowego
 
-                if (data == oldData)
-                    continue;
+                IntPtr hwnd = GetForegroundWindow(); // Pobranie uchwytu do aktywnego okna
+                GetWindowThreadProcessId(hwnd, out uint activeAppPID); // Pobranie PID procesu związanego z aktywnym oknem
 
-                oldData = data;
+                if (data != oldData)
+                    oldData = data;
+                else if (activeAppPID == oldActiveAppPID)
+                    continue;
 
                 // Konwersja odczytanych danych na listę floatów
                 List<float> values = ConvertStringToFloatList(data);
 
-
                 // Jeśli liczba odczytanych wartości nie jest równa root.Apps.Count, przejdź do następnej iteracji
-                if (values.Count != root.Apps.Count)
-                    continue;
-
-                // Ustawienie głośności dla aplikacji na podstawie odczytanych wartości
-                for (int i = 0; i < root.Apps.Count; i++)
-                {
-                    if (oldValues.Count == values.Count)
-                    {
-                        if (values[i] == oldValues[i])
-                            continue;
-                    }
-
-
-                    if (root.Apps[i] is string appName)
-                    {
-                        setAppVolume(appName, values[i]); // Ustaw głośność dla aplikacji
-                    }
-
-                    else if (root.Apps[i] is Dictionary<object, object> groupDict)
-                    {
-                        var groupNames = groupDict.Values.OfType<List<object>>()
-                                     .SelectMany(group => group)
-                                     .ToList();
-
-                        foreach (var groupName in groupNames)
-                        {
-                            setAppVolume(groupName.ToString(), values[i]); // Ustaw głośność
-                        }
-                    }
-                }
-
+                if (values.Count == root.Apps.Count)
+                    setAppVolumeLoop(values, oldValues, activeAppPID);
+                
+                oldActiveAppPID = activeAppPID;
                 oldValues = values;
-                Thread.Sleep(125); // Krótkie opóźnienie przed kolejnym odczytem
+                Thread.Sleep(200); // Krótkie opóźnienie przed kolejnym odczytem
             }
         }
     }
 
+    private static void setAppVolumeLoop(List<float> values, List<float> oldValues, uint activeAppPID)
+    {
+        // Ustawienie głośności dla aplikacji na podstawie odczytanych wartości
+        for (int i = 0; i < root.Apps.Count; i++)
+        {
+            if (oldValues.Count == values.Count)
+            {
+                if (values[i] == oldValues[i])
+                    continue;
+            }
+
+
+            if (root.Apps[i] is string appName)
+            {
+                setAppVolume(appName, values[i], activeAppPID); // Ustaw głośność dla aplikacji
+            }
+            else if (root.Apps[i] is Dictionary<object, object> groupDict)
+            {
+                var groupNames = groupDict.Values.OfType<List<object>>()
+                             .SelectMany(group => group)
+                             .ToList();
+
+                foreach (var groupName in groupNames)
+                {
+                    setAppVolume(groupName.ToString(), values[i], activeAppPID); // Ustaw głośność
+                }
+            }
+        }
+    }
 
     public static bool initConfig()
     {
@@ -236,7 +246,7 @@ class Program
     }
 
 
-    private static void setAppVolume(string app, float volume)
+    private static void setAppVolume(string app, float volume, uint activepid)
     {
         //Console.WriteLine($"{app} -> {volume}");
         if (volume < 0.0f || volume > 100.0f)
@@ -268,6 +278,15 @@ class Program
                 {
                     session.Volume = volume;
                     continue;
+                }
+
+                if (normalizedAppName == "activewindow")
+                {
+                    if (Process.GetProcessById(Convert.ToInt32(activepid)).ProcessName.ToLower() == sessName)
+                    {
+                        session.Volume = volume;
+                        continue;
+                    }
                 }
 
             }

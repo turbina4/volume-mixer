@@ -8,7 +8,7 @@ namespace systemTray
         private static NotifyIcon notifyIcon;
         private static ContextMenuStrip contextMenu;
 
-        [MTAThread]
+        [STAThread]
         public static void Init()
         {
             Application.EnableVisualStyles();

@@ -16,11 +16,12 @@ invertSliders: false
 #       App names are not case sensitive
 #       Special controls: master - controls master volume
 #                         mic - controls your microphone volume
+#                         activeWindow - controls currently focused window volume 
 #       group: Group multiple apps together
 apps:
     - master
     - firefox
-    - AMPLibraryAgent
+    - activeWindow
     - Discord
     - group:
             - PathOfExileSteam

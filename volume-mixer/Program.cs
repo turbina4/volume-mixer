@@ -1,12 +1,12 @@
 ﻿using AudioSwitcher.AudioApi.CoreAudio;
 using AudioSwitcher.AudioApi.Session;
+using Newtonsoft.Json;
 using System.Diagnostics;
 using System.IO.Ports;
 using System.Runtime.InteropServices;
 using yamlConfig;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
-
 class Program
 {
     public static bool initSerial = false;
@@ -22,6 +22,9 @@ class Program
     public static string roamingAppData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
     public static string configPath = Path.Combine(roamingAppData, "Turbina4Software\\config.yaml");
     public static string iconPath = Path.GetFullPath("mixerLogo.ico");
+
+    private static List<object> parsedApps = new List<object>();
+    private static string parsedAppsString = "";
 
     //Get active app
     [DllImport("user32.dll")]
@@ -56,63 +59,68 @@ class Program
     {
         if (initSerial)
         {
-            String oldData = "";
+            string oldData = "";
+            string data = "";
             List<float> oldValues = new List<float>();
+            uint activeAppPID = 0;
             uint oldActiveAppPID = 0;
+
 
             while (!programExit)
             {
-                _serialPort.DiscardInBuffer(); // Opróżnij bufor wejściowy
-                string data = _serialPort.ReadLine(); // Odczytaj linię danych z portu szeregowego
+                try
+                {
+                    _serialPort.DiscardInBuffer(); // Opróżnij bufor wejściowy
+                    data = _serialPort.ReadLine(); // Odczytaj linię danych z portu szeregowego
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex.Message);
+                    programExit = true;
+                }
 
-                IntPtr hwnd = GetForegroundWindow(); // Pobranie uchwytu do aktywnego okna
-                GetWindowThreadProcessId(hwnd, out uint activeAppPID); // Pobranie PID procesu związanego z aktywnym oknem
+                if (parsedAppsString.Contains("activewindow"))
+                {
+                    IntPtr hwnd = GetForegroundWindow(); // Pobranie uchwytu do aktywnego okna
+                    GetWindowThreadProcessId(hwnd, out uint active_app_pid); // Pobranie PID procesu związanego z aktywnym oknem}
+                    activeAppPID = active_app_pid;
+                }
 
                 if (data != oldData)
                     oldData = data;
                 else if (activeAppPID == oldActiveAppPID)
                     continue;
 
+
                 // Konwersja odczytanych danych na listę floatów
                 List<float> values = ConvertStringToFloatList(data);
 
+
                 // Jeśli liczba odczytanych wartości nie jest równa root.Apps.Count, przejdź do następnej iteracji
-                if (values.Count == root.Apps.Count)
-                    setAppVolumeLoop(values, oldValues, activeAppPID);
-                
+                if (values.Count != root.Apps.Count)
+                    continue;
+
+
+                for (int i = 0; i < root.Apps.Count; i++)
+                {
+                    if (oldValues.Count == values.Count)
+                    {
+                        if (values[i] == oldValues[i])
+                            continue;
+                    }
+
+                    if (parsedApps[i] is List<object> appList)
+                        foreach (string app in appList)
+                            setAppVolume(app, values[i], activeAppPID);
+
+                    else if (parsedApps[i] is string app)
+                        setAppVolume(app, values[i], activeAppPID);
+                }
+
+
                 oldActiveAppPID = activeAppPID;
                 oldValues = values;
                 Thread.Sleep(200); // Krótkie opóźnienie przed kolejnym odczytem
-            }
-        }
-    }
-
-    private static void setAppVolumeLoop(List<float> values, List<float> oldValues, uint activeAppPID)
-    {
-        // Ustawienie głośności dla aplikacji na podstawie odczytanych wartości
-        for (int i = 0; i < root.Apps.Count; i++)
-        {
-            if (oldValues.Count == values.Count)
-            {
-                if (values[i] == oldValues[i])
-                    continue;
-            }
-
-
-            if (root.Apps[i] is string appName)
-            {
-                setAppVolume(appName, values[i], activeAppPID); // Ustaw głośność dla aplikacji
-            }
-            else if (root.Apps[i] is Dictionary<object, object> groupDict)
-            {
-                var groupNames = groupDict.Values.OfType<List<object>>()
-                             .SelectMany(group => group)
-                             .ToList();
-
-                foreach (var groupName in groupNames)
-                {
-                    setAppVolume(groupName.ToString(), values[i], activeAppPID); // Ustaw głośność
-                }
             }
         }
     }
@@ -135,6 +143,21 @@ class Program
             Console.WriteLine($"Port: {root.Port}");
             Console.WriteLine($"Baud-rate: {root.Baudrate}");
             Console.WriteLine($"Invert Sliders: {root.InvertSliders}");
+
+            // Dodanie aplikacji do listy
+            parsedApps.Clear();
+            foreach (object app in root.Apps)
+            {
+                if (app is Dictionary<object, object> groupDict)
+                    foreach (object key in groupDict.Keys)
+                        parsedApps.Add(groupDict[key]);
+                else
+                    parsedApps.Add(app);
+            }
+
+
+            parsedAppsString = JsonConvert.SerializeObject(parsedApps).ToLower();
+            Console.WriteLine($"Parsed Apps: {parsedAppsString}");
 
             return true;
         }
@@ -218,6 +241,13 @@ class Program
 
     public static void initAudioDevices()
     {
+        if (playbackDevice != null)
+            playbackDevice.Dispose();
+
+        if (captureDevice != null)
+            captureDevice.Dispose();
+
+
         // Inicjalizacja urządzeń audio
         playbackDevice = new CoreAudioController().DefaultPlaybackDevice;
         captureDevice = new CoreAudioController().DefaultCaptureDevice;
@@ -248,7 +278,6 @@ class Program
 
     private static void setAppVolume(string app, float volume, uint activepid)
     {
-        //Console.WriteLine($"{app} -> {volume}");
         if (volume < 0.0f || volume > 100.0f)
             return;
 
@@ -274,20 +303,14 @@ class Program
                 Process session_process = Process.GetProcessById(session.ProcessId);
                 string sessName = session_process.ProcessName.ToLower();
 
-                if (normalizedAppName == sessName)
-                {
-                    session.Volume = volume;
-                    continue;
-                }
 
-                if (normalizedAppName == "activewindow")
-                {
+                if (normalizedAppName == sessName)
+                    session.Volume = volume;
+
+                else if (normalizedAppName == "activewindow" && !parsedAppsString.Contains(sessName))
                     if (Process.GetProcessById(Convert.ToInt32(activepid)).ProcessName.ToLower() == sessName)
-                    {
                         session.Volume = volume;
-                        continue;
-                    }
-                }
+
 
             }
         }

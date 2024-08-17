@@ -1,5 +1,5 @@
 const int NUM_SLIDERS = 5;
-const int analogInputs[NUM_SLIDERS] = { A0, A1, A2, A3, A4 }; //Change it to analog pins on your arduino
+const int analogInputs[NUM_SLIDERS] = { A0, A1, A2, A3, A10 }; //Change it to analog pins on your arduino
 
 int analogSliderValues[NUM_SLIDERS];
 

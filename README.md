@@ -70,7 +70,7 @@ apps:
 
 ## Installation
 
-Download `setup.exe` or `Mixer.Software.msi` and install the program.
+Download `Mixer.Software.msi` and install the program.
 
 ## Usage
 

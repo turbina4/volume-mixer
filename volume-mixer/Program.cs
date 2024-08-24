@@ -7,6 +7,8 @@ using System.Runtime.InteropServices;
 using yamlConfig;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
+
+
 class Program
 {
     public static bool initSerial = false;
@@ -46,10 +48,10 @@ class Program
         trayHandlerThread.Start();
 
         // Inicjalizacja
+        initAudioDevices();
         initCfg = initConfig();
         if (initCfg)
             initSerial = initSerialPort(root.Port, root.Baudrate);
-        initAudioDevices();
 
         mainLoop();
     }
@@ -68,6 +70,13 @@ class Program
 
             while (!programExit)
             {
+                if (!_serialPort.IsOpen)
+                {
+                    initSerialPort(root.Port, root.Baudrate);
+                    Thread.Sleep(3000);
+                    continue;
+                }
+
                 try
                 {
                     _serialPort.DiscardInBuffer(); // Opróżnij bufor wejściowy
@@ -75,14 +84,14 @@ class Program
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine(ex.Message);
-                    programExit = true;
+                    Console.WriteLine("Serial read error: " + ex.Message + ", Serial port open: " + _serialPort.IsOpen);
+
                 }
 
                 if (parsedAppsString.Contains("activewindow"))
                 {
                     IntPtr hwnd = GetForegroundWindow(); // Pobranie uchwytu do aktywnego okna
-                    GetWindowThreadProcessId(hwnd, out uint active_app_pid); // Pobranie PID procesu związanego z aktywnym oknem}
+                    GetWindowThreadProcessId(hwnd, out uint active_app_pid); // Pobranie PID procesu związanego z aktywnym oknem
                     activeAppPID = active_app_pid;
                 }
 
@@ -122,6 +131,10 @@ class Program
                 oldValues = values;
                 Thread.Sleep(200); // Krótkie opóźnienie przed kolejnym odczytem
             }
+
+
+            _serialPort.Close();
+            _serialPort.Dispose();
         }
     }
 
@@ -178,6 +191,8 @@ class Program
         _serialPort.DtrEnable = true; // Włączenie DTR
         _serialPort.RtsEnable = true; // Włączenie RTS
 
+        Console.WriteLine("Opening Serial Port");
+
         if (comPort == "AUTO")
         {
             // Pobierz wszystkie dostępne porty COM
@@ -212,7 +227,7 @@ class Program
                 catch (Exception ex)
                 {
                     Console.WriteLine("Błąd na porcie: " + port + " - " + ex.Message);
-                    MessageBox.Show($"Error while opening Serial Port ${port} \n {ex.Message}", "Serial Port Error - AUTO", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    //MessageBox.Show($"Error while opening Serial Port ${port} \n {ex.Message}", "Serial Port Error - AUTO", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }

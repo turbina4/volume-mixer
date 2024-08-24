@@ -26,11 +26,13 @@ namespace systemTray
 
             // Dodaj elementy do menu kontekstowego
             ToolStripMenuItem reloadConfigItem = new ToolStripMenuItem("Reload config", null, ReloadConfig);
+            ToolStripMenuItem openSerialItem = new ToolStripMenuItem("Open Serial Port", null, OpenSerialPort);
             ToolStripMenuItem editConfigItem = new ToolStripMenuItem("Edit config", null, EditCfg);
             ToolStripMenuItem reloadAudioDevice = new ToolStripMenuItem("Reload audio device", null, ReloadAudioDevice);
             ToolStripMenuItem exitItem = new ToolStripMenuItem("Exit", null, Exit);
 
             contextMenu.Items.Add(reloadConfigItem);
+            contextMenu.Items.Add(openSerialItem);
             contextMenu.Items.Add(editConfigItem);
             contextMenu.Items.Add(new ToolStripSeparator());
             contextMenu.Items.Add(reloadAudioDevice);
@@ -52,6 +54,12 @@ namespace systemTray
                 Program.initSerial = Program.initSerialPort(Program.root.Port, Program.root.Baudrate);
                 Program.mainLoop();
             }
+        }
+
+        private static void OpenSerialPort(object sender, EventArgs e)
+        {
+            if (Program.initCfg)
+                Program.initSerialPort(Program.root.Port, Program.root.Baudrate);
         }
 
         private static void EditCfg(object sender, EventArgs e)

@@ -6,7 +6,7 @@
 port: AUTO
 
 # baudrate: Same Baud Rate as the one in arduinoCode.ino
-baudrate: 57600
+baudrate: 115200
 
 # invertSliders: Explains itself
 invertSliders: false

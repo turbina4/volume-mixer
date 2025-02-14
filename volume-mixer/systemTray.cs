@@ -1,8 +1,17 @@
 ﻿using System.Diagnostics;
-using System.Windows.Forms;
 
 namespace systemTray
 {
+    class CustomColorTable : ProfessionalColorTable
+    {
+        public override Color ToolStripBorder => Color.Transparent;
+        public override Color MenuBorder => Color.Transparent;
+        public override Color MenuItemSelected => Color.FromArgb(30, 30, 35);
+        public override Color MenuItemSelectedGradientBegin => Color.FromArgb(60, 60, 70);
+        public override Color MenuItemSelectedGradientEnd => Color.FromArgb(60, 60, 70);
+        public override Color MenuItemBorder => Color.Transparent;
+    }
+
     public class TrayHandler
     {
         private static NotifyIcon notifyIcon;
@@ -11,6 +20,8 @@ namespace systemTray
         [STAThread]
         public static void Init()
         {
+            Application.SetHighDpiMode(HighDpiMode.SystemAware);
+
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
 
@@ -22,25 +33,55 @@ namespace systemTray
             };
 
             // Utwórz menu kontekstowe
-            contextMenu = new ContextMenuStrip();
+            contextMenu = new ContextMenuStrip
+            {
+                ShowImageMargin = false,
+                ShowCheckMargin = false,
+                Font = new Font("Lato", 10),
+                BackColor = Color.FromArgb(30, 30, 35),
+                ForeColor = Color.White,
+                DropShadowEnabled = true,
+                Padding = new Padding(5),
+                Renderer = new ToolStripProfessionalRenderer(new CustomColorTable()),
+            };
 
-            // Dodaj elementy do menu kontekstowego
-            ToolStripMenuItem reloadConfigItem = new ToolStripMenuItem("Reload config", null, ReloadConfig);
-            ToolStripMenuItem openSerialItem = new ToolStripMenuItem("Open Serial Port", null, OpenSerialPort);
-            ToolStripMenuItem editConfigItem = new ToolStripMenuItem("Edit config", null, EditCfg);
-            ToolStripMenuItem reloadAudioDevice = new ToolStripMenuItem("Reload audio device", null, ReloadAudioDevice);
-            ToolStripMenuItem exitItem = new ToolStripMenuItem("Exit", null, Exit);
+            //Dodaj elementy do menu kontekstowego
 
-            contextMenu.Items.Add(reloadConfigItem);
-            contextMenu.Items.Add(openSerialItem);
-            contextMenu.Items.Add(editConfigItem);
+            ToolStripMenuItem reloadConfigItem = new ToolStripMenuItem("Reload config", null, ReloadConfig)
+            {
+                Padding = new Padding(3)
+            };
+            ToolStripMenuItem openSerialItem = new ToolStripMenuItem("Open Serial Port", null, OpenSerialPort)
+            {
+                Padding = new Padding(3)
+            };
+            ToolStripMenuItem editConfigItem = new ToolStripMenuItem("Edit config", null, EditCfg)
+            {
+                Padding = new Padding(3)
+            };
+            ToolStripMenuItem reloadAudioDevice = new ToolStripMenuItem("Reload audio devices", null, ReloadAudioDevice)
+            {
+                Padding = new Padding(3)
+            };
+            ToolStripMenuItem exitItem = new ToolStripMenuItem("Exit", null, Exit)
+            {
+                Padding = new Padding(3)
+            };
+
+            contextMenu.Items.Add(new ToolStripLabel { Text = "Mixer Control Panel", Font = new Font("Lato", 10, FontStyle.Bold), Padding = new Padding(0, 10, 0, 10) });
             contextMenu.Items.Add(new ToolStripSeparator());
+            contextMenu.Items.Add(editConfigItem);
+            contextMenu.Items.Add(reloadConfigItem);
+            contextMenu.Items.Add(new ToolStripSeparator());
+            contextMenu.Items.Add(openSerialItem);
             contextMenu.Items.Add(reloadAudioDevice);
             contextMenu.Items.Add(new ToolStripSeparator());
             contextMenu.Items.Add(exitItem);
 
             // Przypisz menu kontekstowe do NotifyIcon
             notifyIcon.ContextMenuStrip = contextMenu;
+
+
 
             // Rozpocznij aplikację
             Application.Run();
@@ -52,7 +93,6 @@ namespace systemTray
             if (!Program.initSerial)
             {
                 Program.initSerial = Program.initSerialPort(Program.root.Port, Program.root.Baudrate);
-                Program.mainLoop();
             }
         }
 

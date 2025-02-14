@@ -1,13 +1,13 @@
-﻿using AudioSwitcher.AudioApi.CoreAudio;
-using AudioSwitcher.AudioApi.Session;
-using Newtonsoft.Json;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO.Ports;
 using System.Runtime.InteropServices;
+using volume_mixer;
+using AudioSwitcher.AudioApi.CoreAudio;
+using AudioSwitcher.AudioApi.Session;
+using Newtonsoft.Json;
 using yamlConfig;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
-
 
 class Program
 {
@@ -28,15 +28,25 @@ class Program
     private static List<object> parsedApps = new List<object>();
     private static string parsedAppsString = "";
 
-    //Get active app
-    [DllImport("user32.dll")]
-    private static extern IntPtr GetForegroundWindow();
+    static string serialBuffer = ""; // Bufor na niepełne linie
+
+    static float[] processedData = new float[5];
+    static float[] oldProcessedData = new float[5];
+
+    static uint activeAppPID = 0;
+
 
     [DllImport("user32.dll")]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+
     private static void Main(string[] args)
     {
+        Logger.logSpecial("----------------------> Mixer Software <----------------------");
+
         // Utwórz i uruchom wątek dla obsługi ikony w zasobniku systemowym
         Thread trayHandlerThread = new Thread(() =>
         {
@@ -52,91 +62,163 @@ class Program
         initCfg = initConfig();
         if (initCfg)
             initSerial = initSerialPort(root.Port, root.Baudrate);
-
-        mainLoop();
     }
 
 
-    public static void mainLoop()
+    private static void DataReceivedHandler(object sender, SerialDataReceivedEventArgs e)
     {
-        if (initSerial)
+        try
         {
-            string oldData = "";
-            string data = "";
-            List<float> oldValues = new List<float>();
-            uint activeAppPID = 0;
-            uint oldActiveAppPID = 0;
+            // Odczytanie wszystkich dostępnych danych
+            string data = _serialPort.ReadExisting();
+            serialBuffer += data; // Dodanie do bufora
 
-
-            while (!programExit)
+            // Przetwarzanie danych
+            int newLineIndex;
+            while ((newLineIndex = serialBuffer.IndexOf('\n')) != -1)
             {
-                if (!_serialPort.IsOpen)
-                {
-                    initSerialPort(root.Port, root.Baudrate);
-                    Thread.Sleep(3000);
-                    continue;
-                }
+                string fullLine = serialBuffer.Substring(0, newLineIndex).Trim(); // Pobierz całą linię
+                serialBuffer = serialBuffer.Substring(newLineIndex + 1); // Usuń ją z bufora
 
-                try
-                {
-                    _serialPort.DiscardInBuffer(); // Opróżnij bufor wejściowy
-                    data = _serialPort.ReadLine(); // Odczytaj linię danych z portu szeregowego
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("Serial read error: " + ex.Message + ", Serial port open: " + _serialPort.IsOpen);
+                Logger.logInfo($"Received Data: ", fullLine);
 
-                }
-
-                if (parsedAppsString.Contains("activewindow"))
-                {
-                    IntPtr hwnd = GetForegroundWindow(); // Pobranie uchwytu do aktywnego okna
-                    GetWindowThreadProcessId(hwnd, out uint active_app_pid); // Pobranie PID procesu związanego z aktywnym oknem
-                    activeAppPID = active_app_pid;
-                }
-
-                if (data != oldData)
-                    oldData = data;
-                else if (activeAppPID == oldActiveAppPID)
-                    continue;
-
-
-                // Konwersja odczytanych danych na listę floatów
-                List<float> values = ConvertStringToFloatList(data);
-
-
-                // Jeśli liczba odczytanych wartości nie jest równa root.Apps.Count, przejdź do następnej iteracji
-                if (values.Count != root.Apps.Count)
-                    continue;
-
-
-                for (int i = 0; i < root.Apps.Count; i++)
-                {
-                    if (oldValues.Count == values.Count)
-                    {
-                        if (values[i] == oldValues[i])
-                            continue;
-                    }
-
-                    if (parsedApps[i] is List<object> appList)
-                        foreach (string app in appList)
-                            setAppVolume(app, values[i], activeAppPID);
-
-                    else if (parsedApps[i] is string app)
-                        setAppVolume(app, values[i], activeAppPID);
-                }
-
-
-                oldActiveAppPID = activeAppPID;
-                oldValues = values;
-                Thread.Sleep(200); // Krótkie opóźnienie przed kolejnym odczytem
+                processSerialData(fullLine);
             }
-
-
-            _serialPort.Close();
-            _serialPort.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Logger.logError($"Błąd odczytu -> {ex.Message}");
         }
     }
+
+
+    private static void processSerialData(string data)
+    {
+        string[] split = data.Split(':');
+        if (split.Length != 2) return;
+
+        int index = int.Parse(split[0]);
+        float value = float.Parse(split[1]);
+
+        oldProcessedData[index] = processedData[index];
+
+        if (!root.InvertSliders) processedData[index] = value;
+        else processedData[index] = 100.0f - value;
+
+        if (processedData[index] != oldProcessedData[index])
+        {
+            if (parsedApps[index] is List<object> appList)
+                foreach (string app in appList)
+                    switch (app.ToLower())
+                    {
+                        case "master":
+                            setMasterVolume(processedData[index]);
+                            break;
+                        case "mic":
+                            setMicVolume(processedData[index]);
+                            break;
+                        case "activewindow":
+                            setActiveWindowVolume(activeAppPID, processedData[index]);
+                            break;
+                        default:
+                            setAppVolume(app, processedData[index]);
+                            break;
+                    }
+
+            else if (parsedApps[index] is string app)
+                switch (app.ToLower())
+                {
+                    case "master":
+                        setMasterVolume(processedData[index]);
+                        break;
+                    case "mic":
+                        setMicVolume(processedData[index]);
+                        break;
+                    case "activewindow":
+                        setActiveWindowVolume(activeAppPID, processedData[index]);
+                        break;
+                    default:
+                        setAppVolume(app, processedData[index]);
+                        break;
+                }
+        }
+
+
+        //TODO: Auto Reconnect
+    }
+
+
+    private static void setAppVolume(string app, float volume)
+    {
+        if (volume < 0.0f || volume > 100.0f)
+            return;
+
+        string normalizedAppName = app.ToLower();
+
+        try
+        {
+            // Iteracja przez sesje audio
+            foreach (IAudioSession session in playbackDevice.SessionController.All())
+            {
+                Process session_process = Process.GetProcessById(session.ProcessId);
+                string sessName = session_process.ProcessName.ToLower();
+
+                if (normalizedAppName == sessName)
+                    session.Volume = volume;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.logError($"Error while retrieving process -> {ex.Message}");
+        }
+    }
+
+
+    private static void setMasterVolume(float volume)
+    {
+        if (volume < 0.0f || volume > 100.0f)
+            return;
+
+        playbackDevice.Volume = volume;
+    }
+
+
+    private static void setMicVolume(float volume)
+    {
+        if (volume < 0.0f || volume > 100.0f)
+            return;
+
+        captureDevice.Volume = volume;
+    }
+
+
+    private static void setActiveWindowVolume(uint pid, float volume)
+    {
+        if (volume < 0.0f || volume > 100.0f)
+            return;
+
+        IntPtr hwnd = GetForegroundWindow(); // Pobranie uchwytu do aktywnego okna
+        GetWindowThreadProcessId(hwnd, out uint active_app_pid); // Pobranie PID procesu związanego z aktywnym oknem
+        activeAppPID = active_app_pid;
+
+        try
+        {
+            // Iteracja przez sesje audio
+            foreach (IAudioSession session in playbackDevice.SessionController.All())
+            {
+                string sessionName = Process.GetProcessById(session.ProcessId).ProcessName.ToLower();
+
+                if (!parsedAppsString.Contains(sessionName))
+                    if (session.ProcessId == activeAppPID)
+                        session.Volume = volume;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.logError($"Error while retrieving process -> {ex.Message}");
+        }
+    }
+
 
     public static bool initConfig()
     {
@@ -152,10 +234,10 @@ class Program
 
             // Deserializacja pliku YAML do obiektu Config
             root = deserializer.Deserialize<Config>(yaml);
-            Console.WriteLine("Initalized Config");
-            Console.WriteLine($"Port: {root.Port}");
-            Console.WriteLine($"Baud-rate: {root.Baudrate}");
-            Console.WriteLine($"Invert Sliders: {root.InvertSliders}");
+            Logger.logInfo($"Port: ", root.Port);
+            Logger.logInfo($"Baud-rate: ", root.Baudrate.ToString());
+            Logger.logInfo($"Invert Sliders: ", root.InvertSliders.ToString());
+            Logger.logInit("Config");
 
             // Dodanie aplikacji do listy
             parsedApps.Clear();
@@ -170,13 +252,13 @@ class Program
 
 
             parsedAppsString = JsonConvert.SerializeObject(parsedApps).ToLower();
-            Console.WriteLine($"Parsed Apps: {parsedAppsString}");
+            Logger.logInfo("Parsed Apps: ", parsedAppsString.Substring(1, parsedAppsString.Length - 2));
 
             return true;
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.Message);
+            Logger.logError($"Error while initializing config -> {ex.Message}");
             MessageBox.Show($"Error while initializing config \n {ex.Message}", "Config Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
 
@@ -190,13 +272,14 @@ class Program
         _serialPort.BaudRate = baud; // Ustawienie szybkości transmisji
         _serialPort.DtrEnable = true; // Włączenie DTR
         _serialPort.RtsEnable = true; // Włączenie RTS
-
-        Console.WriteLine("Opening Serial Port");
+        _serialPort.DataReceived += new SerialDataReceivedEventHandler(DataReceivedHandler);
 
         if (comPort == "AUTO")
         {
             // Pobierz wszystkie dostępne porty COM
             string[] ports = SerialPort.GetPortNames();
+
+            Logger.logInfo("Avaliable ports: ", string.Join(", ", ports));
 
             foreach (string port in ports)
             {
@@ -207,45 +290,40 @@ class Program
                 {
                     _serialPort.PortName = port; // Ustawienie nazwy portu
                     _serialPort.Open(); // Otwórz port
-
-                    Console.WriteLine("Opened: " + port);
-
                     _serialPort.DiscardInBuffer();
-                    string response = _serialPort.ReadLine();
 
-                    // Sprawdź, czy odpowiedź to unikalny identyfikator
-                    if (response.Contains("Mx31"))
-                    {
-                        Console.WriteLine("Znaleziono Arduino na porcie: " + port);
-                        return true;
-                        // Możesz tutaj dodać kod, który będzie działać po wykryciu Arduino
-                    }
+                    Logger.logInfo("Found device on: ", port);
+                    Logger.logInfo("Opened: ", port);
 
-                    _serialPort.Dispose();
+                    Logger.logInit("Serial Port");
+
+                    return true;
                 }
 
                 catch (Exception ex)
                 {
-                    Console.WriteLine("Błąd na porcie: " + port + " - " + ex.Message);
+                    Logger.logError($"Error while opening port -> {ex.Message}");
+                    return false;
                     //MessageBox.Show($"Error while opening Serial Port ${port} \n {ex.Message}", "Serial Port Error - AUTO", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
         }
         else
         {
-            _serialPort.PortName = comPort; // Ustawienie nazwy portu
+            _serialPort.PortName = comPort;
 
             try
             {
-                _serialPort.Open(); // Otwarcie portu
-                Console.WriteLine("Initalized Serial Port");
-                return true; // Zwróć true, jeśli otwarcie się powiodło
+                _serialPort.Open();
+
+                Logger.logInfo("Opened: ", comPort);
+                Logger.logInit("Serial Port");
+                return true;
             }
             catch (Exception ex)
             {
-                _serialPort.Close(); // Zamknięcie portu w przypadku błędu
-                Console.WriteLine($"Failed to open Serial Port"); // Informacja o błędzie
-                MessageBox.Show($"Error while opening Serial Port \n {ex.Message}", "Serial Port Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Logger.logError($"Error while opening port -> {ex.Message}");
+                //MessageBox.Show($"Error while opening Serial Port \n {ex.Message}", "Serial Port Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
             }
         }
@@ -267,71 +345,8 @@ class Program
         playbackDevice = new CoreAudioController().DefaultPlaybackDevice;
         captureDevice = new CoreAudioController().DefaultCaptureDevice;
 
-        Console.WriteLine("Initalized Audio Devices");
-    }
-
-
-    private static List<float> ConvertStringToFloatList(string input)
-    {
-        // Konwersja ciągu znaków na listę floatów
-        string[] parts = input.Split('|'); // Rozdzielenie danych na części
-        List<float> floatList = new List<float>();
-
-        foreach (var part in parts)
-        {
-            if (float.TryParse(part, out float value)) // Próbuj parsować ciąg do float
-            {
-                if (!root.InvertSliders)
-                    floatList.Add(value);
-                else
-                    floatList.Add(100.0f - value);
-            }
-        }
-        return floatList; // Zwróć listę floatów
-    }
-
-
-    private static void setAppVolume(string app, float volume, uint activepid)
-    {
-        if (volume < 0.0f || volume > 100.0f)
-            return;
-
-        string normalizedAppName = app.ToLower();
-
-        if (normalizedAppName == "master")
-        {
-            playbackDevice.Volume = volume;
-            return;
-        }
-
-        if (normalizedAppName == "mic")
-        {
-            captureDevice.Volume = volume;
-            return;
-        }
-
-        try
-        {
-            // Iteracja przez sesje audio
-            foreach (IAudioSession session in playbackDevice.SessionController.All())
-            {
-                Process session_process = Process.GetProcessById(session.ProcessId);
-                string sessName = session_process.ProcessName.ToLower();
-
-
-                if (normalizedAppName == sessName)
-                    session.Volume = volume;
-
-                else if (normalizedAppName == "activewindow" && !parsedAppsString.Contains(sessName))
-                    if (Process.GetProcessById(Convert.ToInt32(activepid)).ProcessName.ToLower() == sessName)
-                        session.Volume = volume;
-
-
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Error while retrieving process: {ex.Message}"); // Informacja o błędzie
-        }
+        Logger.logInfo("Playback device: ", playbackDevice.FullName);
+        Logger.logInfo("Capture device: ", captureDevice.FullName);
+        Logger.logInit("Audio Devices");
     }
 }

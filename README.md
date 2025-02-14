@@ -38,13 +38,13 @@ By grouping applications together, you can control the volume of multiple applic
 ```yaml
 # How to edit the config:
 
-# port:
-#AUTO - automaticly detects port (Experimental feature)
-#manual - Check your COM port in Device Manager (It should look like this -> port: COMx)
+# port: 
+    #AUTO - automaticly detects port (Experimental feature)
+    #manual - Check your COM port in Device Manager (It should look like this -> port: COMx)
 port: AUTO
 
 # baudrate: Same Baud Rate as the one in arduinoCode.ino
-baudrate: 57600
+baudrate: 115200
 
 # invertSliders: Explains itself
 invertSliders: false
@@ -54,7 +54,7 @@ invertSliders: false
 #       App names are not case sensitive
 #       Special controls: master - controls master volume
 #                         mic - controls your microphone volume
-#                         activeWindow - controls currently focused window volume
+#                         activeWindow - controls currently focused window volume 
 #       group: Group multiple apps together
 apps:
     - master
@@ -62,10 +62,10 @@ apps:
     - activeWindow
     - Discord
     - group:
-          - PathOfExileSteam
-          - cs2
-          - GeometryDash
-          - RustClient
+            - PathOfExileSteam
+            - cs2
+            - GeometryDash
+            - RustClient
 ```
 
 ## Installation
